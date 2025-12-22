@@ -246,8 +246,8 @@ fn init_logging() -> Result<log::LevelFilter, Error> {
                     .split(',')
                     .collect::<Vec<&str>>()
                     .into_iter()
-                    .flat_map(|s| match s.split('=').collect::<Vec<&str>>()[..] {
-                        [log, lvl_str] => log::LevelFilter::from_str(lvl_str).ok().map(|lvl| (log, lvl)),
+                    .flat_map(|s| match s.split_once('=') {
+                        Some((log, lvl_str)) => log::LevelFilter::from_str(lvl_str).ok().map(|lvl| (log, lvl)),
                         _ => None,
                     })
                     .collect()
@@ -448,7 +448,7 @@ async fn check_data_folder() {
 
     if data_folder.starts_with("s3://") {
         if let Err(e) = CONFIG
-            .opendal_operator_for_path_type(PathType::Data)
+            .opendal_operator_for_path_type(&PathType::Data)
             .unwrap_or_else(|e| {
                 error!("Failed to create S3 operator for data folder '{data_folder}': {e:?}");
                 exit(1);
@@ -699,10 +699,10 @@ fn schedule_jobs(pool: db::DbPool) {
                 }));
             }
 
-            // Purge sso nonce from incomplete flow (default to daily at 00h20).
-            if !CONFIG.purge_incomplete_sso_nonce().is_empty() {
-                sched.add(Job::new(CONFIG.purge_incomplete_sso_nonce().parse().unwrap(), || {
-                    runtime.spawn(db::models::SsoNonce::delete_expired(pool.clone()));
+            // Purge sso auth from incomplete flow (default to daily at 00h20).
+            if !CONFIG.purge_incomplete_sso_auth().is_empty() {
+                sched.add(Job::new(CONFIG.purge_incomplete_sso_auth().parse().unwrap(), || {
+                    runtime.spawn(db::models::SsoAuth::delete_expired(pool.clone()));
                 }));
             }
 
